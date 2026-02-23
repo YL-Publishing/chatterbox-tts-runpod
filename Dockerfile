@@ -1,14 +1,25 @@
 # ── Chatterbox TTS RunPod Serverless Worker ───────────────────────
-# Base: RunPod's PyTorch image (includes CUDA + Python)
-FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+# Base: NVIDIA CUDA runtime (clean, no conflicting torchvision)
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
-# Install system deps for audio processing
-RUN apt-get update && apt-get install -y --no-install-recommends     ffmpeg     libsndfile1     && rm -rf /var/lib/apt/lists/*
+# Install Python 3.11 + system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3-pip \
+    ffmpeg libsndfile1 git \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-RUN pip install --no-cache-dir     runpod     chatterbox-tts     && pip cache purge
+# Install PyTorch with CUDA 12.4, then chatterbox-tts + runpod
+RUN pip install --no-cache-dir \
+    torch==2.4.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124 \
+    && pip install --no-cache-dir runpod chatterbox-tts \
+    && pip cache purge
 
 # Create voices directory (for optional reference audio)
 RUN mkdir -p /voices
@@ -17,7 +28,6 @@ RUN mkdir -p /voices
 COPY handler.py /app/handler.py
 
 # Pre-download model weights at build time (faster cold starts)
-# Uses huggingface_hub directly to avoid loading the full model graph
 RUN python -c "\
 from huggingface_hub import snapshot_download; \
 snapshot_download('ResembleAI/chatterbox', local_dir='/root/.cache/chatterbox_model'); \
