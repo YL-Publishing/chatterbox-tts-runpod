@@ -1,0 +1,7 @@
+{
+  "input": {
+    "text": "Hello world, this is a test of the Chatterbox text to speech system.",
+    "exaggeration": 0.6,
+    "cfg_weight": 0.5
+  }
+}
