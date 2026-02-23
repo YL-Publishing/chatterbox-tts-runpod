@@ -17,7 +17,12 @@ RUN mkdir -p /voices
 COPY handler.py /app/handler.py
 
 # Pre-download model weights at build time (faster cold starts)
-RUN python -c "from chatterbox.tts import ChatterboxTTS; ChatterboxTTS.from_pretrained(device='cpu')"     && echo 'Model weights cached'
+# Uses huggingface_hub directly to avoid loading the full model graph
+RUN python -c "\
+from huggingface_hub import snapshot_download; \
+snapshot_download('ResembleAI/chatterbox', local_dir='/root/.cache/chatterbox_model'); \
+print('Model weights downloaded')" \
+    || echo 'Model weight pre-download skipped (will download at first request)'
 
 # Copy any voice reference files
 COPY voices/ /voices/
